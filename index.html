@@ -1,15 +1,210 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2f7cf6"><title>待辦事項</title><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icons/icon-192.svg"><link rel="stylesheet" href="layout-config.css"><link rel="stylesheet" href="style.css"></head><body>
-<div class="app">
-<section id="listPage" class="page active"><header class="topbar"><button id="menuBtn" class="icon-btn">☰</button><div class="title">待辦事項</div><div class="version">v1.0.0</div></header><div class="tabs-wrap"><div id="tabs" class="tabs"></div></div><div class="composer"><textarea id="taskInput" placeholder="輸入待辦事項…"></textarea><div class="composer-controls"><select id="categorySelect" class="select-btn"></select><select id="prioritySelect" class="select-btn"></select><input id="dueDate" class="date-input" type="date"><button id="addBtn" class="add-btn">＋</button></div></div><div class="toolbar"><span id="taskCount" class="count">0 項</span><input id="search" class="search" placeholder="搜尋待辦"></div><div id="taskList" class="task-list"></div></section>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#fbfcfe">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="待辦事項">
+  <title>待辦事項</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="layout-config.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <main class="app" id="appRoot">
+    <!-- 主畫面 -->
+    <section id="listPage" class="page active">
+      <header class="topbar">
+        <button id="menuBtn" class="top-icon" aria-label="開啟選單"><span class="hamburger">☰</span></button>
+        <div class="top-title">待辦事項</div>
+        <button class="version version-button" data-open-version>v1.0.1</button>
+      </header>
 
-<section id="tabPage" class="page"><header class="topbar"><button class="icon-btn" data-nav="listPage">‹</button><div class="title">頁籤管理</div><div class="version">v1.0.0</div></header><div class="section-card"><div class="section-title"><span>調整頁籤順序</span><small style="color:var(--muted)">手機可直接上下移動</small></div><div id="tabManager"></div></div></section>
-<section id="managePage" class="page"><header class="topbar"><button class="icon-btn" data-nav="listPage">‹</button><div class="title">分類 / 優先級管理</div><div class="version">v1.0.0</div></header><div class="section-card"><div class="section-title"><span>管理分類</span><button id="addCategory" class="btn">＋ 新增分類</button></div><div id="categoryManager"></div></div><div class="section-card"><div class="section-title"><span>優先級</span><button id="addPriority" class="btn">＋ 新增優先級</button></div><div id="priorityManager"></div></div></section>
-<section id="calendarPage" class="page"><header class="topbar"><button class="icon-btn" data-nav="listPage">‹</button><div class="title">日曆</div><button id="todayMonth" class="btn">今天</button></header><div class="section-card"><div class="calendar-head"><button id="prevMonth" class="btn">‹ 上一月</button><strong id="monthLabel"></strong><button id="nextMonth" class="btn">下一月 ›</button></div><div id="calendarGrid" class="calendar-grid"></div></div><div class="section-card"><div class="section-title"><span id="selectedDateLabel"></span></div><div id="calendarTasks" class="task-list"></div></div></section>
-<section id="backupPage" class="page"><header class="topbar"><button class="icon-btn" data-nav="listPage">‹</button><div class="title">備份與版本</div><div class="version">v1.0.0</div></header><button id="exportBtn" class="utility-card" style="width:100%;background:var(--surface);color:inherit"><span><strong>匯出備份</strong><small>將所有資料匯出為 JSON</small></span><span>›</span></button><label class="utility-card"><span><strong>匯入備份</strong><small>從備份檔合併資料</small></span><span>›</span><input id="importInput" type="file" accept="application/json" class="hidden"></label><div id="backupStatus" class="status hidden">✓ 備份完整性檢查通過</div><button id="checkVersionBtn" class="utility-card" style="width:100%;background:var(--surface);color:inherit"><span><strong>檢查新版本</strong><small>目前版本：v1.0.0</small></span><span>›</span></button><div id="updateBox" class="update-box hidden"><strong>發現新版本 v<span data-latest-version></span></strong><p>更新只替換程式與快取，不會刪除既有 IndexedDB 紀錄。</p><div class="row"><button id="applyUpdateBtn" class="btn primary">立即更新</button><button id="laterUpdateBtn" class="btn">稍後</button></div></div></section>
+      <div class="tabs-wrap"><div id="tabs" class="tabs"></div></div>
+
+      <section class="composer" aria-label="新增待辦">
+        <textarea id="taskInput" rows="2" placeholder="輸入待辦事項…" aria-label="待辦內容"></textarea>
+        <div class="composer-controls">
+          <label class="select-shell"><select id="categorySelect" aria-label="分類"></select><span class="chev">⌄</span></label>
+          <label class="select-shell"><select id="prioritySelect" aria-label="優先級"></select><span class="chev">⌄</span></label>
+          <label class="date-shell" id="dueDateShell">
+            <span id="dueDateText">日期</span><span class="chev">⌄</span>
+            <input id="dueDate" type="date" aria-label="日期">
+          </label>
+          <button id="addBtn" class="add-btn" aria-label="新增待辦">＋</button>
+        </div>
+      </section>
+
+      <div id="taskList" class="task-list"></div>
+      <div class="list-spacer"></div>
+      <footer class="app-version-footer">Todo PWA · v1.0.1</footer>
+    </section>
+
+    <!-- 頁籤管理 -->
+    <section id="tabPage" class="page subpage">
+      <header class="topbar subbar">
+        <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
+        <div class="top-title">頁籤管理</div>
+        <span class="version">v1.0.1</span>
+      </header>
+      <div class="subpage-body">
+        <div class="group-title"><span>調整頁籤順序</span><small>使用 ↑ ↓ 排序</small></div>
+        <div id="tabManager" class="settings-list"></div>
+      </div>
+    </section>
+
+    <!-- 分類與優先級 -->
+    <section id="managePage" class="page subpage">
+      <header class="topbar subbar">
+        <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
+        <div class="top-title">分類 / 優先級管理</div>
+        <span class="version">v1.0.1</span>
+      </header>
+      <div class="subpage-body manage-body">
+        <section class="manage-section">
+          <div class="manage-heading"><strong>管理分類</strong><button id="addCategory" class="mini-add">＋ 新增分類</button></div>
+          <div id="categoryManager" class="manager-list"></div>
+        </section>
+        <section class="manage-section">
+          <div class="manage-heading"><strong>優先級</strong><button id="addPriority" class="mini-add">＋ 新增優先級</button></div>
+          <div id="priorityManager" class="manager-list"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 日曆 -->
+    <section id="calendarPage" class="page subpage">
+      <header class="topbar subbar">
+        <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
+        <div class="top-title">日曆</div>
+        <button id="todayMonth" class="today-btn">今天</button>
+      </header>
+      <div class="calendar-body">
+        <div class="calendar-head">
+          <button id="prevMonth" class="month-btn">‹ 上一月</button>
+          <strong id="monthLabel"></strong>
+          <button id="nextMonth" class="month-btn">下一月 ›</button>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div class="selected-day-head"><strong id="selectedDateLabel"></strong><span id="selectedDateCount"></span></div>
+        <div id="calendarTasks" class="task-list calendar-task-list"></div>
+      </div>
+    </section>
+
+    <!-- 備份與版本 -->
+    <section id="backupPage" class="page subpage">
+      <header class="topbar subbar">
+        <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
+        <div class="top-title">備份與版本</div>
+        <span class="version">v1.0.1</span>
+      </header>
+      <div class="backup-body">
+        <button id="exportBtn" class="utility-card">
+          <span class="utility-icon cloud-up">☁</span>
+          <span class="utility-copy"><strong>匯出備份</strong><small>將所有資料匯出為備份檔（JSON）</small></span><span class="utility-arrow">›</span>
+        </button>
+        <label class="utility-card" for="importInput">
+          <span class="utility-icon cloud-down">☁</span>
+          <span class="utility-copy"><strong>匯入備份</strong><small>從備份檔還原資料</small></span><span class="utility-arrow">›</span>
+          <input id="importInput" type="file" accept="application/json,.json" class="hidden">
+        </label>
+        <label class="utility-card" for="verifyInput">
+          <span class="utility-icon verify-icon">✓</span>
+          <span class="utility-copy"><strong>檢查備份完整性</strong><small>驗證備份檔是否完整可用</small></span><span class="utility-arrow">›</span>
+          <input id="verifyInput" type="file" accept="application/json,.json" class="hidden">
+        </label>
+        <div id="backupStatus" class="backup-status hidden"><span class="success-mark">✓</span><div><strong>備份完整性檢查通過</strong><small>備份檔案完整，資料可正常還原。</small></div></div>
+
+        <button id="checkVersionBtn" class="utility-card version-card">
+          <span class="utility-icon refresh-icon">↻</span>
+          <span class="utility-copy"><strong>檢查新版本</strong><small>目前版本：v1.0.1</small></span><span class="utility-arrow">›</span>
+        </button>
+        <div id="updateBox" class="update-box hidden">
+          <div class="update-title">🚀 發現新版本 v<span data-latest-version></span></div>
+          <div class="update-copy">• 功能優化與問題修正<br>• 您的舊有資料將完整保留，不會遺失。</div>
+          <div class="update-actions"><button id="applyUpdateBtn" class="btn primary">立即更新</button><button id="laterUpdateBtn" class="btn">稍後</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
 </div>
-<div id="overlay" class="overlay"></div><aside id="drawer" class="drawer"><div class="drawer-head"><div><h2>待辦事項</h2><small class="version">v1.0.0</small></div><button id="drawerClose" class="icon-btn">×</button></div><button class="nav-item primary" data-nav="listPage">⌂ 清單</button><button class="nav-item" data-nav="calendarPage">▣ 日曆</button><button class="nav-item" data-nav="backupPage">☁ 備份與還原</button><button class="nav-item" data-nav="tabPage">↕ 頁籤管理</button><button class="nav-item" data-nav="managePage">▤ 分類 / 優先級</button><div class="divider"></div><div class="nav-item">◐ 深色模式<select id="themeSelect" class="switch"><option value="system">跟隨系統</option><option value="light">淺色</option><option value="dark">深色</option></select></div><button class="nav-item" onclick="checkVersion(true)">↻ 檢查新版本</button><div class="nav-item">ⓘ 關於 / 版本資訊 <span class="version" style="margin-left:auto">v1.0.0</span></div></aside>
-<div id="sheet" class="sheet"><div class="sheet-handle"></div><button id="actionEdit" class="action">✎　修改</button><button id="actionOrder" class="action">↕　調整順序</button><button id="actionDelete" class="action danger">🗑　刪除</button></div>
-<div id="taskModal" class="modal"><div class="modal-card"><h3>修改待辦</h3><div class="field"><label>內容</label><textarea id="editContent"></textarea></div><div class="row"><div class="field"><label>分類</label><select id="editCategory"></select></div><div class="field"><label>優先級</label><select id="editPriority"></select></div></div><div class="field"><label>日期</label><input id="editDate" type="date"></div><label><input id="editCompleted" type="checkbox"> 已完成</label><div class="modal-actions"><button id="cancelTaskEdit" class="btn">取消</button><button id="saveTaskEdit" class="btn primary">儲存</button></div></div></div>
-<div id="managerModal" class="modal"><div class="modal-card"><h3 id="managerTitle"></h3><input id="managerType" type="hidden"><input id="managerId" type="hidden"><div class="field"><label>名稱</label><input id="managerName"></div><div class="field"><label>顏色</label><input id="managerColor" type="color" value="#3b82f6"></div><div class="modal-actions"><button id="cancelManager" class="btn">取消</button><button id="saveManager" class="btn primary">儲存</button></div></div></div>
-<div id="toast" class="toast"></div><div id="undo" class="toast"></div><div class="footer">Todo PWA · v1.0.0</div>
-<script src="db.js"></script><script src="backup.js"></script><script src="version.js"></script><script src="app.js"></script></body></html>
+
+<!-- 左側選單 -->
+<div id="overlay" class="overlay" aria-hidden="true"></div>
+<aside id="drawer" class="drawer" aria-label="功能選單">
+  <div class="drawer-brand">
+    <div class="app-icon">✓</div>
+    <div class="brand-copy"><strong>待辦事項</strong><small>簡單・專注・讓生活更有條理</small></div>
+    <span class="version">v1.0.1</span>
+  </div>
+  <nav class="drawer-nav">
+    <button class="nav-item active" data-nav="listPage"><span class="nav-icon">⌂</span><span>清單</span></button>
+    <button class="nav-item" data-nav="calendarPage"><span class="nav-icon">▣</span><span>日曆</span></button>
+    <button class="nav-item" data-nav="backupPage"><span class="nav-icon">☁</span><span>備份與還原</span></button>
+    <button class="nav-item" data-nav="tabPage"><span class="nav-icon">◇</span><span>頁籤管理</span></button>
+    <button class="nav-item" data-nav="managePage"><span class="nav-icon">◈</span><span>分類 / 優先級</span></button>
+    <div class="drawer-divider"></div>
+    <label class="nav-item theme-row"><span class="nav-icon">◐</span><span>深色模式</span><select id="themeSelect"><option value="system">系統</option><option value="light">淺色</option><option value="dark">深色</option></select></label>
+    <button class="nav-item" id="drawerVersionCheck"><span class="nav-icon">↻</span><span>檢查新版本</span></button>
+    <button class="nav-item" data-open-version><span class="nav-icon">ⓘ</span><span>關於 / 版本資訊</span></button>
+  </nav>
+  <div class="drawer-quote">「把想做的事，變成做得到的事。」</div>
+</aside>
+
+<!-- 記事卡三點功能選單：效果圖同款右側浮動小視窗 -->
+<div id="taskMenu" class="task-popover" role="menu">
+  <button id="actionEdit" class="popover-action"><span>✎</span>修改</button>
+  <button id="actionOrder" class="popover-action"><span>↕</span>調整順序</button>
+  <button id="actionDelete" class="popover-action danger"><span>⌫</span>刪除</button>
+</div>
+
+<!-- 修改待辦 -->
+<div id="taskModal" class="modal">
+  <div class="modal-card">
+    <h3>修改待辦</h3>
+    <div class="field"><label>內容</label><textarea id="editContent"></textarea></div>
+    <div class="two-cols"><div class="field"><label>分類</label><select id="editCategory"></select></div><div class="field"><label>優先級</label><select id="editPriority"></select></div></div>
+    <div class="field"><label>日期</label><input id="editDate" type="date"></div>
+    <label class="check-row"><input id="editCompleted" type="checkbox"> 已完成</label>
+    <div class="modal-actions"><button id="cancelTaskEdit" class="btn">取消</button><button id="saveTaskEdit" class="btn primary">儲存</button></div>
+  </div>
+</div>
+
+<!-- 分類 / 優先級編輯 -->
+<div id="managerModal" class="modal">
+  <div class="modal-card">
+    <h3 id="managerTitle"></h3><input id="managerType" type="hidden"><input id="managerId" type="hidden">
+    <div class="field"><label>名稱</label><input id="managerName"></div>
+    <div class="field"><label>顏色</label><div class="color-row"><input id="managerColor" type="color" value="#3b82f6"><span>點擊色塊選擇顏色</span></div></div>
+    <div class="modal-actions"><button id="cancelManager" class="btn">取消</button><button id="saveManager" class="btn primary">儲存</button></div>
+  </div>
+</div>
+
+<!-- 匯入確認 -->
+<div id="importModal" class="modal">
+  <div class="modal-card">
+    <h3>匯入備份</h3>
+    <div id="importPreview" class="import-preview"></div>
+    <p class="modal-note">匯入前會先建立目前資料的安全快照。建議使用「合併資料」。</p>
+    <div class="import-actions"><button id="cancelImport" class="btn">取消</button><button id="replaceImport" class="btn danger-outline">取代目前資料</button><button id="mergeImport" class="btn primary">合併資料</button></div>
+  </div>
+</div>
+
+<!-- 關於 -->
+<div id="aboutModal" class="modal">
+  <div class="modal-card about-card"><div class="about-icon">✓</div><h3>待辦事項</h3><p>Todo PWA · v1.0.1</p><small>資料儲存在本機 IndexedDB。網站更新不會清除既有待辦紀錄。</small><div class="modal-actions"><button id="closeAbout" class="btn primary">完成</button></div></div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="undo" class="toast undo"></div>
+
+<script src="db.js"></script>
+<script src="backup.js"></script>
+<script src="version.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

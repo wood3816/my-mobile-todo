@@ -1,15 +1,79 @@
 :root{
-  --font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Roboto,Arial,sans-serif;
-  --font-xs:12px;--font-sm:13px;--font-md:16px;--font-lg:18px;--font-xl:22px;
-  --page-max-width:520px;--page-padding:12px;--header-height:54px;--tab-height:38px;
-  --input-min-height:54px;--input-max-height:150px;--control-height:40px;--task-min-height:62px;
-  --task-gap:6px;--card-radius:12px;--panel-radius:16px;--checkbox-size:21px;--icon-size:22px;
-  --chip-height:22px;--safe-bottom:max(10px,env(safe-area-inset-bottom));--safe-top:max(0px,env(safe-area-inset-top));
-  --shadow:0 8px 24px rgba(30,45,70,.08);
-  --bg:#f6f8fb;--surface:#fff;--surface-2:#eef3f9;--text:#18202b;--muted:#6d7888;--line:#dfe5ec;
-  --primary:#2f7cf6;--primary-soft:#eaf2ff;--danger:#e5484d;--success:#23a566;
+  /* ===== Typography ===== */
+  --font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","Noto Sans TC",Roboto,Arial,sans-serif;
+  --font-2xs:10px;
+  --font-xs:11px;
+  --font-sm:12px;
+  --font-md:14px;
+  --font-lg:17px;
+  --font-xl:20px;
+  --font-weight-normal:500;
+  --font-weight-medium:650;
+  --font-weight-bold:800;
+
+  /* ===== Main geometry: tuned to the approved mockup ===== */
+  --app-max-width:430px;
+  --page-padding:12px;
+  --header-height:48px;
+  --tab-height:30px;
+  --tab-gap:5px;
+  --input-min-height:66px;
+  --input-max-height:148px;
+  --control-height:36px;
+  --add-size:36px;
+  --task-min-height:58px;
+  --task-gap:5px;
+  --task-padding-y:8px;
+  --task-padding-x:9px;
+  --card-radius:9px;
+  --panel-radius:12px;
+  --checkbox-size:19px;
+  --icon-button-size:34px;
+  --chip-height:18px;
+  --chip-font-size:10px;
+  --drawer-width:min(79vw,306px);
+  --action-menu-width:138px;
+
+  /* ===== iPhone / Android safe area ===== */
+  --safe-top:max(0px,env(safe-area-inset-top));
+  --safe-bottom:max(8px,env(safe-area-inset-bottom));
+
+  /* ===== Color ===== */
+  --canvas:#eef2f7;
+  --bg:#fbfcfe;
+  --surface:#ffffff;
+  --surface-2:#f3f6fa;
+  --surface-3:#eaf2ff;
+  --text:#111827;
+  --muted:#778397;
+  --muted-2:#9aa5b5;
+  --line:#dfe5ed;
+  --line-strong:#d4dce7;
+  --primary:#2f7cf6;
+  --primary-pressed:#236ce0;
+  --primary-soft:#eaf2ff;
+  --danger:#ef3e42;
+  --success:#1fa766;
+  --success-soft:#e9f8f0;
+  --shadow-app:0 18px 50px rgba(21,32,52,.12);
+  --shadow-menu:0 12px 30px rgba(24,35,54,.18);
 }
+
 [data-theme="dark"]{
-  --bg:#101318;--surface:#171b22;--surface-2:#202630;--text:#f2f5f8;--muted:#9aa4b2;--line:#303845;
-  --primary:#5b97ff;--primary-soft:#182944;--shadow:0 8px 24px rgba(0,0,0,.3);
+  --canvas:#090c10;
+  --bg:#10141a;
+  --surface:#171c23;
+  --surface-2:#202731;
+  --surface-3:#172943;
+  --text:#f5f7fa;
+  --muted:#9aa6b6;
+  --muted-2:#788395;
+  --line:#303946;
+  --line-strong:#3a4553;
+  --primary:#5b97ff;
+  --primary-pressed:#78a9ff;
+  --primary-soft:#182a45;
+  --success-soft:#123225;
+  --shadow-app:0 18px 50px rgba(0,0,0,.45);
+  --shadow-menu:0 12px 30px rgba(0,0,0,.5);
 }
