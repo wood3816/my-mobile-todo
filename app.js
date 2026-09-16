@@ -9,9 +9,14 @@ let state={tasks:[],categories:[],priorities:[],tab:'all',selectedTask:null,cale
 
 async function init(){
   await openDB();
-  if(!(await DB.all('categories')).length)await DB.bulkPut('categories',DEFAULT_CATS);
-  if(!(await DB.all('priorities')).length)await DB.bulkPut('priorities',DEFAULT_PRI);
-  await ensureSetting('tabs',DEFAULT_TABS);await ensureSetting('theme','system');
+  // 只在真正的全新安裝建立預設分類/優先級。
+  // 舊版本若使用者已把分類或優先級全部刪除，不應在重新開啟後自動長回來。
+  const [existingTasks,existingCats,existingPri,existingSettings]=await Promise.all([
+    DB.all('tasks'),DB.all('categories'),DB.all('priorities'),DB.all('settings')
+  ]);
+  const isFreshInstall=!existingTasks.length&&!existingCats.length&&!existingPri.length&&!existingSettings.length;
+  if(isFreshInstall){await DB.bulkPut('categories',DEFAULT_CATS);await DB.bulkPut('priorities',DEFAULT_PRI)}
+  await ensureSetting('tabs',DEFAULT_TABS);await ensureSetting('theme','system');await ensureSetting('initialized',true);
   state.categories=await DB.all('categories');state.priorities=await DB.all('priorities');
   bind();
   applyTheme((await DB.get('settings','theme'))?.value||'system');
@@ -29,6 +34,8 @@ function bind(){
   $$('[data-open-version]').forEach(b=>b.addEventListener('click',()=>{openModal('aboutModal');closeDrawer()}));
   $('#closeAbout').onclick=()=>closeModal('aboutModal');
   $('#themeSelect').onchange=async e=>{applyTheme(e.target.value);await DB.put('settings',{key:'theme',value:e.target.value})};
+  const scheme=window.matchMedia?.('(prefers-color-scheme: dark)');
+  scheme?.addEventListener?.('change',async()=>{const saved=(await DB.get('settings','theme'))?.value||'system';if(saved==='system')applyTheme('system')});
   $('#drawerVersionCheck').onclick=()=>checkVersion(true);
 
   $('#exportBtn').onclick=async()=>{try{await exportBackup();showBackupOK('備份完整性檢查通過','備份已產生並通過格式檢查。');toast('備份已匯出')}catch(e){toast('備份匯出失敗')}};
@@ -88,9 +95,9 @@ function priName(id){return state.priorities.find(x=>x.id===id)?.name||''}
 function colorOf(list,id){return list.find(x=>x.id===id)?.color||'#94a3b8'}
 function renderTasks(){
   const list=$('#taskList'),items=filterTasks();
-  if(!items.length){list.innerHTML='<div class="empty">目前沒有待辦事項</div>';return}
   let html=state.taskOrderMode?'<div class="order-mode-bar"><span>排序模式：使用 ↑ ↓ 調整</span><button id="finishOrder">完成</button></div>':'';
-  html+=items.map(t=>`<article class="task ${t.completed?'done':''} ${state.taskOrderMode?'ordering':''}" data-id="${t.id}">
+  if(!items.length)html+='<div class="empty">目前沒有待辦事項</div>';
+  else html+=items.map(t=>`<article class="task ${t.completed?'done':''} ${state.taskOrderMode?'ordering':''}" data-id="${t.id}">
     <input class="check" type="checkbox" ${t.completed?'checked':''} aria-label="完成">
     <div class="task-main"><div class="task-title">${esc(t.content)}</div><div class="meta">
       ${t.categoryId?`<span class="chip" style="background:${hexAlpha(colorOf(state.categories,t.categoryId),.14)};color:${colorOf(state.categories,t.categoryId)}">${esc(catName(t.categoryId))}</span>`:''}
@@ -100,9 +107,11 @@ function renderTasks(){
     ${state.taskOrderMode?'<div class="task-order-actions"><button data-move="-1" aria-label="上移">↑</button><button data-move="1" aria-label="下移">↓</button></div>':'<button class="more" aria-label="更多功能">⋮</button>'}
   </article>`).join('');
   list.innerHTML=html;
-  $('#finishOrder')?.addEventListener('click',()=>{state.taskOrderMode=false;renderTasks();toast('排序已儲存')});
-  $$('.task').forEach(el=>{
-    const id=el.dataset.id;el.querySelector('.check').onchange=()=>toggleTask(id);
+  list.querySelector('#finishOrder')?.addEventListener('click',()=>{state.taskOrderMode=false;renderTasks();toast('排序已儲存')});
+  // 僅綁定主清單內的記事卡，避免覆蓋日曆頁自己的 checkbox / 更多功能事件。
+  list.querySelectorAll('.task').forEach(el=>{
+    const id=el.dataset.id;
+    const check=el.querySelector('.check');if(check)check.onchange=()=>toggleTask(id);
     const more=el.querySelector('.more');if(more)more.onclick=e=>{e.stopPropagation();openTaskMenu(id,more)};
     el.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>moveTask(id,Number(b.dataset.move)));
   });
@@ -129,7 +138,7 @@ async function moveTab(id,dir){const st=await DB.get('settings','tabs'),tabs=[..
 function openDrawer(){$('#drawer').classList.add('show');$('#overlay').classList.add('show');$('#overlay').setAttribute('aria-hidden','false')}
 function closeDrawer(){$('#drawer').classList.remove('show');$('#overlay').classList.remove('show');$('#overlay').setAttribute('aria-hidden','true')}
 function closeAll(){closeDrawer();closeTaskMenu();$$('.modal').forEach(m=>m.classList.remove('show'))}
-function showPage(id){$$('.page').forEach(p=>p.classList.remove('active'));$('#'+id)?.classList.add('active');$$('.nav-item[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===id));if(id==='calendarPage')renderCalendar();if(id==='managePage')renderManagers();if(id==='tabPage')renderTabManager();if(id==='backupPage'){}window.scrollTo({top:0,behavior:'instant'})}
+function showPage(id){$$('.page').forEach(p=>p.classList.remove('active'));$('#'+id)?.classList.add('active');$$('.nav-item[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===id));if(id==='calendarPage')renderCalendar();if(id==='managePage')renderManagers();if(id==='tabPage')renderTabManager();if(id==='backupPage'){}window.scrollTo({top:0,behavior:'auto'})}
 function openModal(id){$('#'+id).classList.add('show')}
 function closeModal(id){$('#'+id).classList.remove('show')}
 
@@ -166,7 +175,7 @@ async function performImport(mode){if(!state.pendingImport)return;try{await impo
 async function verifyBackupFile(e){const file=e.target.files?.[0];e.target.value='';if(!file)return;try{const obj=JSON.parse(await file.text());await validateBackup(obj);showBackupOK('備份完整性檢查通過','備份檔案完整，資料可正常還原。');toast('檢查通過')}catch(err){$('#backupStatus').classList.add('hidden');toast('備份檢查失敗：'+err.message)}}
 function showBackupOK(title,desc){const box=$('#backupStatus');box.innerHTML=`<span class="success-mark">✓</span><div><strong>${esc(title)}</strong><small>${esc(desc)}</small></div>`;box.classList.remove('hidden')}
 
-function applyTheme(v){const actual=v==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):v;document.documentElement.dataset.theme=actual;$('#themeSelect').value=v;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',actual==='dark'?'#10141a':'#fbfcfe')}
+function applyTheme(v){const prefersDark=window.matchMedia?.('(prefers-color-scheme: dark)').matches??false;const actual=v==='system'?(prefersDark?'dark':'light'):v;document.documentElement.dataset.theme=actual;const select=$('#themeSelect');if(select)select.value=v;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',actual==='dark'?'#10141a':'#fbfcfe')}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2300)}
 function formatDateTime(v){if(!v)return'未知';const d=new Date(v);return Number.isNaN(d.getTime())?'未知':d.toLocaleString('zh-TW',{hour12:false})}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}

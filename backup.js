@@ -11,7 +11,10 @@ async function validateBackup(obj){
   if(!Number.isInteger(obj.schemaVersion)||obj.schemaVersion<1)throw new Error('缺少有效 schemaVersion');
   if(obj.schemaVersion>BACKUP_SCHEMA)throw new Error('此備份來自較新的資料格式');
   if(!Array.isArray(obj.tasks)||!Array.isArray(obj.categories)||!Array.isArray(obj.priorities))throw new Error('備份缺少必要資料');
-  for(const t of obj.tasks){if(!t||typeof t.id!=='string'||typeof t.content!=='string')throw new Error('待辦資料結構不完整')}
+  if(obj.settings!=null&&!Array.isArray(obj.settings))throw new Error('設定資料格式錯誤');
+  for(const t of obj.tasks){if(!t||typeof t.id!=='string'||!t.id||typeof t.content!=='string')throw new Error('待辦資料結構不完整')}
+  for(const c of obj.categories){if(!c||typeof c.id!=='string'||typeof c.name!=='string')throw new Error('分類資料結構不完整')}
+  for(const p of obj.priorities){if(!p||typeof p.id!=='string'||typeof p.name!=='string')throw new Error('優先級資料結構不完整')}
   if(obj.checksum){const copy={...obj};delete copy.checksum;const sum=await checksum(JSON.stringify(copy));if(sum!==obj.checksum)throw new Error('checksum 驗證失敗')}
   return true
 }

@@ -1,8 +1,8 @@
-# Todo PWA 版面規格 v1.0.1
+# Todo PWA 版面規格 v1.0.3
 
 本版以確認過的「六畫面全展開效果圖」為視覺基準重新校正。主要版面數值集中於 `layout-config.css`，後續要改尺寸時優先改該檔案。
 
-| 項目 | CSS 變數 | v1.0.1 預設值 |
+| 項目 | CSS 變數 | v1.0.3 預設值 |
 |---|---|---:|
 | App 最大寬度 | `--app-max-width` | 430px |
 | 主畫面左右留白 | `--page-padding` | 12px |
@@ -34,7 +34,7 @@
 - 功能列：輸入框下方 7px，依序為「分類 / 優先級 / 日期 / ＋」。
 - 記事卡：`27px / 自動 / 30px` 三欄，左 Checkbox、中內容、右三點。
 - 三點按鈕：按下後在按鈕附近顯示 138px 寬浮動選單，不使用底部抽屜。
-- 版本號：主畫面底部 `Todo PWA · v1.0.1`。
+- 版本號：主畫面底部 `Todo PWA · v1.0.3`。
 
 ## 手機響應
 - 主目標：375–430px 寬的 Android / iPhone。
@@ -66,3 +66,10 @@
 若要整體更緊湊：調 `--task-gap`、`--task-min-height`、`--page-padding`。
 若要字體更大：調 `--font-md`、`--font-lg`，不建議直接修改各元件 CSS。
 若要按鈕更大：調 `--control-height`、`--add-size`、`--checkbox-size`。
+
+
+## v1.0.3 卡片控制項對齊
+
+- `.check`：`align-self:center; margin-top:0`，垂直置中。
+- `.more`：`align-self:center; margin-top:0; color:var(--text)`，垂直置中並跟隨主題文字色。
+- 淺色模式 `--text:#111827`；深色模式 `--text:#f5f7fa`。
