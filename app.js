@@ -2,10 +2,11 @@ const $=q=>document.querySelector(q), $$=q=>[...document.querySelectorAll(q)];
 const uid=p=>`${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
 const todayISO=()=>{const d=new Date(),off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,10)};
 const DEFAULT_CATS=[{id:'work',name:'工作',color:'#3b82f6',order:1},{id:'family',name:'家庭',color:'#22c55e',order:2},{id:'personal',name:'個人',color:'#8b5cf6',order:3}];
-const DEFAULT_PRI=[{id:'high',name:'高',color:'#ef4444',order:1},{id:'medium',name:'中',color:'#f59e0b',order:2},{id:'low',name:'低',color:'#22c55e',order:3}];
-const DEFAULT_TABS=['all','open','done','today','future'];
-const TAB_LABEL={all:'全部',open:'未完成',done:'已完成',today:'今天',future:'未來'};
-let state={tasks:[],categories:[],priorities:[],tab:'all',selectedTask:null,calendarDate:new Date(),selectedDate:todayISO(),taskOrderMode:false,pendingImport:null};
+const DEFAULT_PRI=[{id:'high',name:'高',color:'#ef4444',order:1},{id:'medium',name:'一般',color:'#f59e0b',order:2},{id:'low',name:'低',color:'#22c55e',order:3}];
+const DEFAULT_PRIORITY_ID='medium';
+const DEFAULT_TABS=['all','open','done','today'];
+const TAB_LABEL={all:'全部',open:'未完成',done:'已完成',today:'今天'};
+let state={tasks:[],categories:[],priorities:[],tab:'all',categoryFilter:'',priorityFilter:'',filterStartDate:'',filterEndDate:'',filterCompletedOnly:false,filterNext7Days:false,filterDraftPriority:'',searchTerm:'',selectedTask:null,calendarDate:new Date(),selectedDate:todayISO(),taskOrderMode:false,pendingImport:null};
 
 async function init(){
   await openDB();
@@ -16,7 +17,17 @@ async function init(){
   ]);
   const isFreshInstall=!existingTasks.length&&!existingCats.length&&!existingPri.length&&!existingSettings.length;
   if(isFreshInstall){await DB.bulkPut('categories',DEFAULT_CATS);await DB.bulkPut('priorities',DEFAULT_PRI)}
+  else{
+    // 相容舊版：只把未被自訂過的舊預設『中』安全改名為『一般』；使用者自訂名稱不動。
+    const legacyMedium=existingPri.find(x=>x.id===DEFAULT_PRIORITY_ID);
+    if(legacyMedium&&legacyMedium.name==='中'&&String(legacyMedium.color||'').toLowerCase()==='#f59e0b'){
+      await DB.put('priorities',{...legacyMedium,name:'一般'});
+    }
+  }
   await ensureSetting('tabs',DEFAULT_TABS);await ensureSetting('theme','system');await ensureSetting('initialized',true);
+  const savedTabs=await DB.get('settings','tabs');
+  const normalized=normalizeTabs(savedTabs?.value);
+  if(JSON.stringify(normalized)!==JSON.stringify(savedTabs?.value||[]))await DB.put('settings',{key:'tabs',value:normalized});
   state.categories=await DB.all('categories');state.priorities=await DB.all('priorities');
   bind();
   applyTheme((await DB.get('settings','theme'))?.value||'system');
@@ -30,13 +41,23 @@ function bind(){
   $('#menuBtn').onclick=openDrawer;$('#overlay').onclick=closeAll;
   $('#addBtn').onclick=addTask;$('#taskInput').addEventListener('input',autoGrow);
   $('#dueDate').addEventListener('change',syncDateLabel);
+  $('#searchBtn').onclick=openSearch;
+  $('#closeSearch').onclick=()=>closeModal('searchModal');
+  $('#applySearch').onclick=applySearch;
+  $('#searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')applySearch()});
+  $('#clearSearch').onclick=clearSearch;
+  $('#closeFilter').onclick=()=>closeModal('filterModal');
+  $('#cancelFilter').onclick=()=>closeModal('filterModal');
+  $('#applyFilter').onclick=applyAdvancedFilter;
+  $('#clearFilter').onclick=clearAdvancedFilter;
   $$('[data-nav]').forEach(b=>b.addEventListener('click',()=>{showPage(b.dataset.nav);closeDrawer()}));
+  $$('[data-manage]').forEach(b=>b.addEventListener('click',()=>{openManageSection(b.dataset.manage);closeDrawer()}));
   $$('[data-open-version]').forEach(b=>b.addEventListener('click',()=>{openModal('aboutModal');closeDrawer()}));
   $('#closeAbout').onclick=()=>closeModal('aboutModal');
   $('#themeSelect').onchange=async e=>{applyTheme(e.target.value);await DB.put('settings',{key:'theme',value:e.target.value})};
   const scheme=window.matchMedia?.('(prefers-color-scheme: dark)');
   scheme?.addEventListener?.('change',async()=>{const saved=(await DB.get('settings','theme'))?.value||'system';if(saved==='system')applyTheme('system')});
-  $('#drawerVersionCheck').onclick=()=>checkVersion(true);
+  $('#settingsVersionCheck').onclick=()=>checkVersion(true);
 
   $('#exportBtn').onclick=async()=>{try{await exportBackup();showBackupOK('備份完整性檢查通過','備份已產生並通過格式檢查。');toast('備份已匯出')}catch(e){toast('備份匯出失敗')}};
   $('#importInput').onchange=prepareImport;
@@ -65,21 +86,57 @@ async function refresh(){
   state.tasks=(await DB.all('tasks')).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0));
   state.categories=(await DB.all('categories')).sort((a,b)=>(a.order??0)-(b.order??0));
   state.priorities=(await DB.all('priorities')).sort((a,b)=>(a.order??0)-(b.order??0));
-  fillSelects();renderTasks();renderCalendarTasks();
+  fillSelects();await renderTabs();renderTasks();renderCalendarTasks();
 }
 function fillSelects(){
   const c=$('#categorySelect'),p=$('#prioritySelect');
   const cv=c.value,pv=p.value;
   c.innerHTML='<option value="">分類</option>'+state.categories.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
-  p.innerHTML='<option value="">優先級</option>'+state.priorities.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
-  if([...c.options].some(o=>o.value===cv))c.value=cv;if([...p.options].some(o=>o.value===pv))p.value=pv;
+  p.innerHTML=state.priorities.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+  if([...c.options].some(o=>o.value===cv))c.value=cv;
+  if([...p.options].some(o=>o.value===pv))p.value=pv;
+  else if([...p.options].some(o=>o.value===DEFAULT_PRIORITY_ID))p.value=DEFAULT_PRIORITY_ID;
+  else if(p.options.length)p.selectedIndex=0;
+  const fc=$('#filterCategory');
+  if(state.categoryFilter&&!state.categories.some(x=>x.id===state.categoryFilter))state.categoryFilter='';
+  if(state.priorityFilter&&!state.priorities.some(x=>x.id===state.priorityFilter))state.priorityFilter='';
+  if(state.filterDraftPriority&&!state.priorities.some(x=>x.id===state.filterDraftPriority))state.filterDraftPriority='';
+  if(fc){fc.innerHTML='<option value="">全部類別</option>'+state.categories.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
 }
-function autoGrow(e){const el=e.currentTarget;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,148)+'px'}
+function normalizeTabs(raw){const src=Array.isArray(raw)?raw:DEFAULT_TABS;const out=src.filter((x,i)=>DEFAULT_TABS.includes(x)&&src.indexOf(x)===i);for(const id of DEFAULT_TABS)if(!out.includes(id))out.push(id);return out}
+function hasAdvancedFilter(){return !!(state.categoryFilter||state.priorityFilter||state.filterStartDate||state.filterEndDate||state.filterCompletedOnly||state.filterNext7Days)}
+function openAdvancedFilter(){
+  const fc=$('#filterCategory');fc.value=state.categoryFilter||'';
+  $('#filterStartDate').value=state.filterStartDate||'';$('#filterEndDate').value=state.filterEndDate||'';
+  $('#filterCompletedOnly').checked=!!state.filterCompletedOnly;$('#filterNext7Days').checked=!!state.filterNext7Days;
+  state.filterDraftPriority=state.priorityFilter||'';renderFilterPriorityChips();openModal('filterModal')
+}
+function renderFilterPriorityChips(){
+  const root=$('#filterPriorityChips');if(!root)return;
+  const all=`<button type="button" class="filter-chip ${!state.filterDraftPriority?'selected':''}" data-filter-priority="">全部</button>`;
+  root.innerHTML=all+state.priorities.map(x=>`<button type="button" class="filter-chip ${state.filterDraftPriority===x.id?'selected':''}" data-filter-priority="${x.id}" style="--chip-color:${x.color}">${esc(x.name)}</button>`).join('');
+  root.querySelectorAll('[data-filter-priority]').forEach(b=>b.onclick=()=>{state.filterDraftPriority=b.dataset.filterPriority;renderFilterPriorityChips()})
+}
+function applyAdvancedFilter(){
+  state.categoryFilter=$('#filterCategory').value||'';state.priorityFilter=state.filterDraftPriority||'';
+  state.filterStartDate=$('#filterStartDate').value||'';state.filterEndDate=$('#filterEndDate').value||'';
+  if(state.filterStartDate&&state.filterEndDate&&state.filterStartDate>state.filterEndDate)[state.filterStartDate,state.filterEndDate]=[state.filterEndDate,state.filterStartDate];
+  state.filterCompletedOnly=$('#filterCompletedOnly').checked;state.filterNext7Days=$('#filterNext7Days').checked;
+  closeModal('filterModal');renderTabs();renderTasks();toast(hasAdvancedFilter()?'已套用篩選':'已清除篩選')
+}
+function clearAdvancedFilter(){
+  state.categoryFilter='';state.priorityFilter='';state.filterStartDate='';state.filterEndDate='';state.filterCompletedOnly=false;state.filterNext7Days=false;state.filterDraftPriority='';
+  closeModal('filterModal');renderTabs();renderTasks();toast('已清除篩選')
+}
+function openSearch(){$('#searchInput').value=state.searchTerm||'';$('#clearSearch').classList.toggle('hidden',!state.searchTerm);openModal('searchModal');setTimeout(()=>$('#searchInput').focus(),60)}
+function applySearch(){state.searchTerm=$('#searchInput').value.trim();closeModal('searchModal');renderTasks();toast(state.searchTerm?'已套用搜尋':'已清除搜尋')}
+function clearSearch(){state.searchTerm='';$('#searchInput').value='';closeModal('searchModal');renderTasks();toast('已清除搜尋')}
+function autoGrow(e){const el=e.currentTarget;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,126)+'px'}
 function syncDateLabel(){const v=$('#dueDate').value;$('#dueDateShell').classList.toggle('has-date',!!v);$('#dueDateText').textContent=v?v.slice(5).replace('-','/'):'日期'}
 async function addTask(){
   const content=$('#taskInput').value.trim();if(!content){toast('請先輸入待辦內容');return}
   const now=new Date().toISOString(),max=state.tasks.length?Math.max(...state.tasks.map(x=>x.sortOrder||0)):0;
-  const t={id:uid('task'),content,completed:false,categoryId:$('#categorySelect').value||null,priorityId:$('#prioritySelect').value||null,dueDate:$('#dueDate').value||null,sortOrder:max+100,createdAt:now,updatedAt:now,completedAt:null};
+  const t={id:uid('task'),content,completed:false,categoryId:$('#categorySelect').value||null,priorityId:$('#prioritySelect').value||(state.priorities.some(x=>x.id===DEFAULT_PRIORITY_ID)?DEFAULT_PRIORITY_ID:null),dueDate:$('#dueDate').value||null,sortOrder:max+100,createdAt:now,updatedAt:now,completedAt:null};
   try{await DB.put('tasks',t);$('#taskInput').value='';$('#taskInput').style.height='';$('#dueDate').value='';syncDateLabel();await refresh();toast('已新增待辦')}catch(e){toast('儲存失敗，請重新嘗試')}
 }
 function filterTasks(){
@@ -87,12 +144,19 @@ function filterTasks(){
   if(state.tab==='open')arr=arr.filter(x=>!x.completed);
   if(state.tab==='done')arr=arr.filter(x=>x.completed);
   if(state.tab==='today')arr=arr.filter(x=>x.dueDate===t);
-  if(state.tab==='future')arr=arr.filter(x=>x.dueDate&&x.dueDate>t);
+  if(state.categoryFilter)arr=arr.filter(x=>x.categoryId===state.categoryFilter);
+  if(state.priorityFilter)arr=arr.filter(x=>x.priorityId===state.priorityFilter);
+  if(state.filterStartDate)arr=arr.filter(x=>x.dueDate&&x.dueDate>=state.filterStartDate);
+  if(state.filterEndDate)arr=arr.filter(x=>x.dueDate&&x.dueDate<=state.filterEndDate);
+  if(state.filterCompletedOnly)arr=arr.filter(x=>x.completed);
+  if(state.filterNext7Days){const end=new Date(t+'T12:00:00');end.setDate(end.getDate()+7);const e=end.toISOString().slice(0,10);arr=arr.filter(x=>x.dueDate&&x.dueDate>=t&&x.dueDate<=e)}
+  if(state.searchTerm){const q=state.searchTerm.toLocaleLowerCase('zh-Hant');arr=arr.filter(x=>`${x.content} ${catName(x.categoryId)} ${priName(x.priorityId)}`.toLocaleLowerCase('zh-Hant').includes(q))}
   return arr;
 }
 function catName(id){return state.categories.find(x=>x.id===id)?.name||''}
 function priName(id){return state.priorities.find(x=>x.id===id)?.name||''}
 function colorOf(list,id){return list.find(x=>x.id===id)?.color||'#94a3b8'}
+function dueChip(t){if(!t.dueDate)return'';const today=todayISO();const label=t.dueDate===today?'今天':t.dueDate.slice(5).replace('-','/');const cls=t.dueDate===today?' due-today':(t.dueDate<today&&!t.completed?' due-overdue':'');return `<span class="chip due-chip${cls}">${label}</span>`}
 function renderTasks(){
   const list=$('#taskList'),items=filterTasks();
   let html=state.taskOrderMode?'<div class="order-mode-bar"><span>排序模式：使用 ↑ ↓ 調整</span><button id="finishOrder">完成</button></div>':'';
@@ -102,16 +166,15 @@ function renderTasks(){
     <div class="task-main"><div class="task-title">${esc(t.content)}</div><div class="meta">
       ${t.categoryId?`<span class="chip" style="background:${hexAlpha(colorOf(state.categories,t.categoryId),.14)};color:${colorOf(state.categories,t.categoryId)}">${esc(catName(t.categoryId))}</span>`:''}
       ${t.priorityId?`<span class="chip" style="background:${hexAlpha(colorOf(state.priorities,t.priorityId),.14)};color:${colorOf(state.priorities,t.priorityId)}">${esc(priName(t.priorityId))}</span>`:''}
-      ${t.dueDate?`<span class="chip">${t.dueDate.replaceAll('-','/')}</span>`:''}
+      ${dueChip(t)}
     </div></div>
     ${state.taskOrderMode?'<div class="task-order-actions"><button data-move="-1" aria-label="上移">↑</button><button data-move="1" aria-label="下移">↓</button></div>':'<button class="more" aria-label="更多功能">⋮</button>'}
   </article>`).join('');
   list.innerHTML=html;
+  const completed=items.filter(x=>x.completed).length;const sum=$('#listSummary');if(sum)sum.textContent=`${items.length} 項待辦${completed?` · ${completed} 項已完成`:''}${state.searchTerm?' · 搜尋中':''}`;
   list.querySelector('#finishOrder')?.addEventListener('click',()=>{state.taskOrderMode=false;renderTasks();toast('排序已儲存')});
-  // 僅綁定主清單內的記事卡，避免覆蓋日曆頁自己的 checkbox / 更多功能事件。
   list.querySelectorAll('.task').forEach(el=>{
-    const id=el.dataset.id;
-    const check=el.querySelector('.check');if(check)check.onchange=()=>toggleTask(id);
+    const id=el.dataset.id;const check=el.querySelector('.check');if(check)check.onchange=()=>toggleTask(id);
     const more=el.querySelector('.more');if(more)more.onclick=e=>{e.stopPropagation();openTaskMenu(id,more)};
     el.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>moveTask(id,Number(b.dataset.move)));
   });
@@ -131,9 +194,14 @@ async function saveTaskEdit(){const t=state.tasks.find(x=>x.id===state.selectedT
 async function deleteTask(id){const t=state.tasks.find(x=>x.id===id);if(!t)return;if(!confirm(`確定刪除「${t.content.slice(0,24)}${t.content.length>24?'…':''}」？`))return;await DB.delete('tasks',id);await refresh();showUndo(t)}
 function showUndo(t){const bar=$('#undo');bar.innerHTML='待辦已刪除　<button id="undoBtn">復原</button>';bar.classList.add('show');clearTimeout(showUndo._t);showUndo._t=setTimeout(()=>bar.classList.remove('show'),5000);$('#undoBtn').onclick=async()=>{clearTimeout(showUndo._t);await DB.put('tasks',t);bar.classList.remove('show');await refresh();toast('已復原')}}
 
-async function renderTabs(){const st=await DB.get('settings','tabs'),tabs=st?.value||DEFAULT_TABS;$('#tabs').innerHTML=tabs.map(id=>`<button class="tab ${state.tab===id?'active':''}" data-tab="${id}">${TAB_LABEL[id]}</button>`).join('');$$('.tab').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderTabs();renderTasks()})}
-async function renderTabManager(){const root=$('#tabManager');if(!root)return;const st=await DB.get('settings','tabs'),tabs=st?.value||DEFAULT_TABS;root.innerHTML=tabs.map((id,i)=>`<div class="tab-manager-row"><strong>${TAB_LABEL[id]}</strong><button class="order-btn" data-tab-up="${id}" ${i===0?'disabled':''}>↑</button><button class="order-btn" data-tab-down="${id}" ${i===tabs.length-1?'disabled':''}>↓</button></div>`).join('');$$('[data-tab-up]').forEach(b=>b.onclick=()=>moveTab(b.dataset.tabUp,-1));$$('[data-tab-down]').forEach(b=>b.onclick=()=>moveTab(b.dataset.tabDown,1))}
-async function moveTab(id,dir){const st=await DB.get('settings','tabs'),tabs=[...(st?.value||DEFAULT_TABS)],i=tabs.indexOf(id),j=i+dir;if(i<0||j<0||j>=tabs.length)return;[tabs[i],tabs[j]]=[tabs[j],tabs[i]];await DB.put('settings',{key:'tabs',value:tabs});await renderTabs();await renderTabManager();toast('頁籤順序已儲存')}
+async function renderTabs(){
+  const st=await DB.get('settings','tabs'),tabs=normalizeTabs(st?.value);
+  $('#tabs').innerHTML=tabs.map(id=>`<button class="tab ${state.tab===id?'active':''}" data-tab="${id}">${TAB_LABEL[id]}</button>`).join('')+`<button id="filterBtn" class="tab filter-tab ${hasAdvancedFilter()?'filter-active':''}" aria-label="開啟篩選"><span class="filter-funnel" aria-hidden="true"></span> 篩選${hasAdvancedFilter()?'<i></i>':''}</button>`;
+  $$('.tab[data-tab]').forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;renderTabs();renderTasks()});
+  $('#filterBtn').onclick=openAdvancedFilter;
+}
+async function renderTabManager(){const root=$('#tabManager');if(!root)return;const st=await DB.get('settings','tabs'),tabs=normalizeTabs(st?.value);root.innerHTML=tabs.map((id,i)=>`<div class="tab-manager-row"><strong>${TAB_LABEL[id]}</strong><button class="order-btn" data-tab-up="${id}" ${i===0?'disabled':''}>↑</button><button class="order-btn" data-tab-down="${id}" ${i===tabs.length-1?'disabled':''}>↓</button></div>`).join('')+'<div class="tab-manager-note">「篩選」固定在最右側，不參與排序。</div>';$$('[data-tab-up]').forEach(b=>b.onclick=()=>moveTab(b.dataset.tabUp,-1));$$('[data-tab-down]').forEach(b=>b.onclick=()=>moveTab(b.dataset.tabDown,1))}
+async function moveTab(id,dir){const st=await DB.get('settings','tabs'),tabs=normalizeTabs(st?.value),i=tabs.indexOf(id),j=i+dir;if(i<0||j<0||j>=tabs.length)return;[tabs[i],tabs[j]]=[tabs[j],tabs[i]];await DB.put('settings',{key:'tabs',value:tabs});await renderTabs();await renderTabManager();toast('頁籤順序已儲存')}
 
 function openDrawer(){$('#drawer').classList.add('show');$('#overlay').classList.add('show');$('#overlay').setAttribute('aria-hidden','false')}
 function closeDrawer(){$('#drawer').classList.remove('show');$('#overlay').classList.remove('show');$('#overlay').setAttribute('aria-hidden','true')}
@@ -141,6 +209,12 @@ function closeAll(){closeDrawer();closeTaskMenu();$$('.modal').forEach(m=>m.clas
 function showPage(id){$$('.page').forEach(p=>p.classList.remove('active'));$('#'+id)?.classList.add('active');$$('.nav-item[data-nav]').forEach(n=>n.classList.toggle('active',n.dataset.nav===id));if(id==='calendarPage')renderCalendar();if(id==='managePage')renderManagers();if(id==='tabPage')renderTabManager();if(id==='backupPage'){}window.scrollTo({top:0,behavior:'auto'})}
 function openModal(id){$('#'+id).classList.add('show')}
 function closeModal(id){$('#'+id).classList.remove('show')}
+
+function openManageSection(type){
+  const cat=type==='categories';$('#managerPageTitle').textContent=cat?'分類管理':'優先級管理';
+  $('#categoryManageSection').classList.toggle('hidden',!cat);$('#priorityManageSection').classList.toggle('hidden',cat);
+  showPage('managePage');renderManagers();$$('.nav-item').forEach(n=>n.classList.remove('active'));document.querySelector(`[data-manage="${type}"]`)?.classList.add('active')
+}
 
 function renderManagers(){
   for(const [store,root] of [['categories','#categoryManager'],['priorities','#priorityManager']]){

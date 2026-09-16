@@ -21,13 +21,13 @@
       <header class="topbar">
         <button id="menuBtn" class="top-icon" aria-label="開啟選單"><span class="hamburger">☰</span></button>
         <div class="top-title">待辦事項</div>
-        <button class="version version-button" data-open-version>v1.0.3</button>
+        <button id="searchBtn" class="top-icon top-search" aria-label="搜尋待辦"><span class="search-glyph" aria-hidden="true"></span></button>
       </header>
 
       <div class="tabs-wrap"><div id="tabs" class="tabs"></div></div>
 
       <section class="composer" aria-label="新增待辦">
-        <textarea id="taskInput" rows="2" placeholder="輸入待辦事項…" aria-label="待辦內容"></textarea>
+        <textarea id="taskInput" rows="1" placeholder="輸入待辦事項…" aria-label="待辦內容"></textarea>
         <div class="composer-controls">
           <label class="select-shell"><select id="categorySelect" aria-label="分類"></select><span class="chev">⌄</span></label>
           <label class="select-shell"><select id="prioritySelect" aria-label="優先級"></select><span class="chev">⌄</span></label>
@@ -41,7 +41,7 @@
 
       <div id="taskList" class="task-list"></div>
       <div class="list-spacer"></div>
-      <footer class="app-version-footer">Todo PWA · v1.0.3</footer>
+      <footer class="list-footer"><span id="listSummary">0 項待辦</span><button class="footer-version" data-open-version>v1.0.6</button></footer>
     </section>
 
     <!-- 頁籤管理 -->
@@ -49,7 +49,7 @@
       <header class="topbar subbar">
         <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
         <div class="top-title">頁籤管理</div>
-        <span class="version">v1.0.3</span>
+        <span class="version">v1.0.6</span>
       </header>
       <div class="subpage-body">
         <div class="group-title"><span>調整頁籤順序</span><small>使用 ↑ ↓ 排序</small></div>
@@ -61,15 +61,15 @@
     <section id="managePage" class="page subpage">
       <header class="topbar subbar">
         <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
-        <div class="top-title">分類 / 優先級管理</div>
-        <span class="version">v1.0.3</span>
+        <div id="managerPageTitle" class="top-title">分類管理</div>
+        <span class="version">v1.0.6</span>
       </header>
       <div class="subpage-body manage-body">
-        <section class="manage-section">
+        <section id="categoryManageSection" class="manage-section">
           <div class="manage-heading"><strong>管理分類</strong><button id="addCategory" class="mini-add">＋ 新增分類</button></div>
           <div id="categoryManager" class="manager-list"></div>
         </section>
-        <section class="manage-section">
+        <section id="priorityManageSection" class="manage-section hidden">
           <div class="manage-heading"><strong>優先級</strong><button id="addPriority" class="mini-add">＋ 新增優先級</button></div>
           <div id="priorityManager" class="manager-list"></div>
         </section>
@@ -100,7 +100,7 @@
       <header class="topbar subbar">
         <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
         <div class="top-title">備份與版本</div>
-        <span class="version">v1.0.3</span>
+        <span class="version">v1.0.6</span>
       </header>
       <div class="backup-body">
         <button id="exportBtn" class="utility-card">
@@ -121,13 +121,28 @@
 
         <button id="checkVersionBtn" class="utility-card version-card">
           <span class="utility-icon refresh-icon">↻</span>
-          <span class="utility-copy"><strong>檢查新版本</strong><small>目前版本：v1.0.3</small></span><span class="utility-arrow">›</span>
+          <span class="utility-copy"><strong>檢查新版本</strong><small>目前版本：v1.0.6</small></span><span class="utility-arrow">›</span>
         </button>
         <div id="updateBox" class="update-box hidden">
           <div class="update-title">🚀 發現新版本 v<span data-latest-version></span></div>
           <div class="update-copy">• 功能優化與問題修正<br>• 您的舊有資料將完整保留，不會遺失。</div>
           <div class="update-actions"><button id="applyUpdateBtn" class="btn primary">立即更新</button><button id="laterUpdateBtn" class="btn">稍後</button></div>
         </div>
+      </div>
+    </section>
+
+    <!-- 設定 -->
+    <section id="settingsPage" class="page subpage">
+      <header class="topbar subbar">
+        <button class="top-icon back" data-nav="listPage" aria-label="返回">‹</button>
+        <div class="top-title">設定</div>
+        <span class="version">v1.0.6</span>
+      </header>
+      <div class="subpage-body settings-body">
+        <div class="setting-section-title">外觀</div>
+        <label class="setting-row"><span><strong>主題模式</strong><small>可跟隨手機系統</small></span><select id="themeSelect"><option value="system">跟隨系統</option><option value="light">淺色模式</option><option value="dark">深色模式</option></select></label>
+        <div class="setting-section-title">版本</div>
+        <button id="settingsVersionCheck" class="setting-row setting-button"><span><strong>檢查新版本</strong><small>目前版本 v1.0.6</small></span><span>›</span></button>
       </div>
     </section>
   </main>
@@ -139,18 +154,17 @@
   <div class="drawer-brand">
     <div class="app-icon">✓</div>
     <div class="brand-copy"><strong>待辦事項</strong><small>簡單・專注・讓生活更有條理</small></div>
-    <span class="version">v1.0.3</span>
+    <span class="version">v1.0.6</span>
   </div>
   <nav class="drawer-nav">
-    <button class="nav-item active" data-nav="listPage"><span class="nav-icon">⌂</span><span>清單</span></button>
+    <button class="nav-item active" data-nav="listPage"><span class="nav-icon">✓</span><span>待辦事項</span></button>
     <button class="nav-item" data-nav="calendarPage"><span class="nav-icon">▣</span><span>日曆</span></button>
+    <button class="nav-item" data-manage="categories"><span class="nav-icon">▦</span><span>分類管理</span></button>
+    <button class="nav-item" data-manage="priorities"><span class="nav-icon">⌘</span><span>優先級管理</span></button>
     <button class="nav-item" data-nav="backupPage"><span class="nav-icon">☁</span><span>備份與還原</span></button>
     <button class="nav-item" data-nav="tabPage"><span class="nav-icon">◇</span><span>頁籤管理</span></button>
-    <button class="nav-item" data-nav="managePage"><span class="nav-icon">◈</span><span>分類 / 優先級</span></button>
-    <div class="drawer-divider"></div>
-    <label class="nav-item theme-row"><span class="nav-icon">◐</span><span>深色模式</span><select id="themeSelect"><option value="system">系統</option><option value="light">淺色</option><option value="dark">深色</option></select></label>
-    <button class="nav-item" id="drawerVersionCheck"><span class="nav-icon">↻</span><span>檢查新版本</span></button>
-    <button class="nav-item" data-open-version><span class="nav-icon">ⓘ</span><span>關於 / 版本資訊</span></button>
+    <button class="nav-item" data-nav="settingsPage"><span class="nav-icon">⚙</span><span>設定</span></button>
+    <button class="nav-item" data-open-version><span class="nav-icon">ⓘ</span><span>關於</span></button>
   </nav>
   <div class="drawer-quote">「把想做的事，變成做得到的事。」</div>
 </aside>
@@ -160,6 +174,28 @@
   <button id="actionEdit" class="popover-action"><span>✎</span>修改</button>
   <button id="actionOrder" class="popover-action"><span>↕</span>調整順序</button>
   <button id="actionDelete" class="popover-action danger"><span>⌫</span>刪除</button>
+</div>
+
+<!-- 篩選面板：整合於第一排「篩選」實體按鈕 -->
+<div id="filterModal" class="modal filter-modal">
+  <div class="modal-card filter-card">
+    <div class="modal-title-row"><h3>篩選條件</h3><button id="closeFilter" class="modal-close" aria-label="關閉">×</button></div>
+    <div class="field"><label>類別</label><select id="filterCategory"></select></div>
+    <div class="field"><label>優先級</label><div id="filterPriorityChips" class="filter-priority-chips"></div></div>
+    <div class="field"><label>日期範圍</label><div class="date-range"><input id="filterStartDate" type="date" aria-label="開始日期"><span>～</span><input id="filterEndDate" type="date" aria-label="結束日期"></div></div>
+    <label class="switch-row"><span>只顯示已完成</span><input id="filterCompletedOnly" type="checkbox"><span class="switch-ui"></span></label>
+    <label class="switch-row"><span>只顯示近期（7天內）</span><input id="filterNext7Days" type="checkbox"><span class="switch-ui"></span></label>
+    <div class="filter-actions"><button id="clearFilter" class="btn">清除</button><button id="cancelFilter" class="btn">取消</button><button id="applyFilter" class="btn primary">套用</button></div>
+  </div>
+</div>
+
+<!-- 搜尋 -->
+<div id="searchModal" class="modal search-modal">
+  <div class="modal-card search-card">
+    <div class="modal-title-row"><h3>搜尋待辦</h3><button id="closeSearch" class="modal-close" aria-label="關閉">×</button></div>
+    <div class="search-input-row"><input id="searchInput" type="search" placeholder="輸入關鍵字…" autocomplete="off"><button id="applySearch" class="btn primary">搜尋</button></div>
+    <button id="clearSearch" class="search-clear hidden">清除目前搜尋</button>
+  </div>
 </div>
 
 <!-- 修改待辦 -->
@@ -196,7 +232,7 @@
 
 <!-- 關於 -->
 <div id="aboutModal" class="modal">
-  <div class="modal-card about-card"><div class="about-icon">✓</div><h3>待辦事項</h3><p>Todo PWA · v1.0.3</p><small>資料儲存在本機 IndexedDB。網站更新不會清除既有待辦紀錄。</small><div class="modal-actions"><button id="closeAbout" class="btn primary">完成</button></div></div>
+  <div class="modal-card about-card"><div class="about-icon">✓</div><h3>待辦事項</h3><p>Todo PWA · v1.0.6</p><small>資料儲存在本機 IndexedDB。網站更新不會清除既有待辦紀錄。</small><div class="modal-actions"><button id="closeAbout" class="btn primary">完成</button></div></div>
 </div>
 
 <div id="toast" class="toast"></div>

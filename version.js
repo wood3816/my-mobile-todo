@@ -1,4 +1,4 @@
-const APP_VERSION='1.0.3';
+const APP_VERSION='1.0.6';
 async function checkVersion(showIfCurrent=false){
   try{
     const r=await fetch(`version.json?t=${Date.now()}`,{cache:'no-store'});
